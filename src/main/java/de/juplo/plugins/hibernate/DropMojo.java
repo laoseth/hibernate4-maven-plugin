@@ -1,5 +1,8 @@
 package de.juplo.plugins.hibernate;
 
+import java.sql.SQLException;
+import java.util.List;
+
 /*
  * Copyright 2001-2005 The Apache Software Foundation.
  *
@@ -22,6 +25,7 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.hibernate.boot.spi.MetadataImplementor;
 import org.hibernate.service.ServiceRegistry;
 import org.hibernate.tool.schema.SourceType;
+import org.hibernate.tool.schema.spi.CommandAcceptanceException;
 import org.hibernate.tool.schema.spi.ExecutionOptions;
 import org.hibernate.tool.schema.spi.SchemaManagementTool;
 import org.hibernate.tool.schema.spi.ScriptSourceInput;
@@ -92,7 +96,29 @@ public class DropMojo extends AbstractSchemaMojo
         return null;
       }
     };
-
+    
     tool.getSchemaDropper(config).doDrop(metadata, options, source, target);
   }
+  @Override
+	protected void handleExceptions(List<CommandAcceptanceException> list) throws MojoFailureException {
+	  if (list.size() > 0)
+      {
+        StringBuilder builder = new StringBuilder();
+        for (CommandAcceptanceException e : list)
+        {
+        	//Its ok if we can't drop what isn't there
+        	if(e.getCause() instanceof SQLException && e.getCause().getMessage().contains("not exist")){
+        		continue;
+        	}
+          builder.append("\n * ");
+          builder.append(e.getMessage());
+        }
+        if(builder.length()==0)
+        	return;
+        String error = "Hibernate failed:"+ builder.toString();
+        getLog().error(error);
+        throw new MojoFailureException(error);
+      }
+	}
+  
 }

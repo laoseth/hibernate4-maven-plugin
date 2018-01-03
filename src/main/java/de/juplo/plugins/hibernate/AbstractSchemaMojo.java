@@ -34,6 +34,7 @@ import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.project.MavenProject;
+import org.eclipse.aether.util.StringUtils;
 import org.hibernate.boot.MetadataBuilder;
 import org.hibernate.boot.MetadataSources;
 import org.hibernate.boot.cfgxml.internal.ConfigLoader;
@@ -73,6 +74,7 @@ import org.hibernate.jpa.boot.internal.PersistenceXmlParser;
 import org.hibernate.tool.schema.TargetType;
 import org.hibernate.tool.schema.internal.ExceptionHandlerCollectingImpl;
 import org.hibernate.tool.schema.internal.exec.ScriptTargetOutputToFile;
+import org.hibernate.tool.schema.spi.CommandAcceptanceException;
 import org.hibernate.tool.schema.spi.ExecutionOptions;
 import org.hibernate.tool.schema.spi.SchemaManagementToolCoordinator;
 import org.hibernate.tool.schema.spi.ScriptTargetOutput;
@@ -313,6 +315,22 @@ public abstract class AbstractSchemaMojo extends AbstractMojo
    * @since 1.0.1
    */
   private Boolean scanTestClasses;
+  
+  /**
+   * List of packages to scan for annotated classes.  Defaults to all packages
+   * Multiple packages can be separated with white-spaces and/or commas.
+   * @parameter
+   */
+  private String onlyIncludePackages;
+  
+  /**
+   * List of packages to exclude from scanning for annotated classes.  Defaults to all packages
+   * Multiple packages can be separated with white-spaces and/or commas.
+   * 
+   * @parameter
+   *
+   */
+  private String excludePackages;
 
   /**
    * Test-Classes-Directory to scan.
@@ -733,19 +751,7 @@ public abstract class AbstractSchemaMojo extends AbstractMojo
       {
         thread.setContextClassLoader(classLoader);
         build((MetadataImplementor)metadataBuilder.build(), options, target);
-        if (handler.getExceptions().size() > 0)
-        {
-          StringBuilder builder = new StringBuilder();
-          builder.append("Hibernate failed:");
-          for (Exception e : handler.getExceptions())
-          {
-            builder.append("\n * ");
-            builder.append(e.getMessage());
-          }
-          String error = builder.toString();
-          getLog().error(error);
-          throw new MojoFailureException(error);
-        }
+        handleExceptions(handler.getExceptions());
       }
       finally
       {
@@ -782,7 +788,21 @@ public abstract class AbstractSchemaMojo extends AbstractMojo
     }
   }
 
-
+  protected void handleExceptions(List<CommandAcceptanceException> list) throws MojoFailureException{
+	  if (list.size() > 0)
+      {
+        StringBuilder builder = new StringBuilder();
+        builder.append("Hibernate failed:");
+        for (CommandAcceptanceException e : list)
+        {
+          builder.append("\n * ");
+          builder.append(e.getMessage());
+        }
+        String error = builder.toString();
+        getLog().error(error);
+        throw new MojoFailureException(error);
+      }
+  }
   abstract void build(
       MetadataImplementor metadata,
       ExecutionOptions options,
@@ -1232,6 +1252,12 @@ public abstract class AbstractSchemaMojo extends AbstractMojo
     try
     {
       AnnotationDB db = new AnnotationDB();
+      
+      if(!StringUtils.isEmpty(excludePackages))
+    	db.addIgnoredPackages(excludePackages.split("[\\s,]+"));
+      
+      if(!StringUtils.isEmpty(onlyIncludePackages))
+      	db.setScanPackages(onlyIncludePackages.split("[\\s,]+"));
       for (URL root : scanRoots)
         db.scanArchives(root);
 
