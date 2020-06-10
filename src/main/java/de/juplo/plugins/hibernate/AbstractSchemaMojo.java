@@ -797,6 +797,13 @@ public abstract class AbstractSchemaMojo extends AbstractMojo
         {
           builder.append("\n * ");
           builder.append(e.getMessage());
+          Throwable root = e;
+          while(root.getCause()!=null)
+        	  root = root.getCause();
+          if(root!=e) {
+        	  builder.append("Root Cause:\n ** ");
+        	  builder.append(root.getMessage());
+          }
         }
         String error = builder.toString();
         getLog().error(error);

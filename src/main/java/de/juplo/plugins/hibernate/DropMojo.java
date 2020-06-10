@@ -20,6 +20,7 @@ import java.util.List;
  */
 
 import java.util.Map;
+
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.hibernate.boot.spi.MetadataImplementor;
@@ -107,11 +108,11 @@ public class DropMojo extends AbstractSchemaMojo
         for (CommandAcceptanceException e : list)
         {
         	//Its ok if we can't drop what isn't there
-        	if(e.getCause() instanceof SQLException && e.getCause().getMessage().contains("not exist")){
+        	if(e.getCause() instanceof SQLException &&( e.getCause().getMessage().contains("not exist") ||  e.getCause().getMessage().contains("nonexistent constraint"))){
         		continue;
         	}
           builder.append("\n * ");
-          builder.append(e.getMessage());
+          builder.append(e.getMessage()+(e.getCause() !=null ?". Cause was:"+ e.getCause().getMessage():""));
         }
         if(builder.length()==0)
         	return;
